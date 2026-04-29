@@ -1,0 +1,64 @@
+.container {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background-color: #f9f9f9;
+}
+
+.toggleContainer {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: start;
+  max-width: 500px;
+  width: 100%;
+  padding: 0 30px;
+}
+
+.heading {
+  margin-top: 50px;
+  margin-bottom: 0;
+  align-self: flex-start;
+  width: 100%;
+  color: black;
+}
+
+.label {
+  margin-top: 30px;
+  margin-bottom: 10px;
+  align-self: flex-start;
+  width: 100%;
+  color: black;
+}
+
+.checkboxContainer {
+  margin-top: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.buttonContainer {
+  margin-top: 40px;
+  width: 100%;
+}
+
+.footerText {
+  margin-top: 20px;
+  color: black;
+}
+
+.link {
+  color: red;
+  font-weight: 600;
+  cursor: pointer;
+}

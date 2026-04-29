@@ -1,0 +1,57 @@
+/* Root label */
+.custom-checkbox {
+  display: flex;
+  align-items: flex-start; /* important for multiline */
+  gap: 14px;
+  cursor: pointer;
+  width: 100%;
+  color: #000;
+}
+
+/* Hide native checkbox */
+.custom-checkbox-input {
+  display: none;
+}
+
+/* Custom box (matches screenshot) */
+.custom-checkbox-box {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: transparent;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Filled inner shape when checked */
+.custom-checkbox-input:checked + .custom-checkbox-box::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: #000;
+  border-radius: 6px;
+}
+
+/* Text label */
+.custom-checkbox-label {
+  font-size: 18px;
+  line-height: 1.45;
+  white-space: normal; /* allow wrapping */
+  word-break: break-word;
+  flex: 1;
+}
+
+/* Mobile scaling */
+@media (max-width: 768px) {
+  .custom-checkbox-box {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+  }
+
+  .custom-checkbox-label {
+    font-size: 16px;
+  }
+}

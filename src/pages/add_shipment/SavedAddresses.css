@@ -1,0 +1,28 @@
+.saved-addresses {
+  background-color: #f8f8f8;
+}
+
+.address-card {
+  background-color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.address-text .label {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.address-text .location {
+  font-size: 18px;
+  color: #333;
+}
+
+.arrow-icon {
+  color: #d2232a;
+  font-size: 20px;
+}

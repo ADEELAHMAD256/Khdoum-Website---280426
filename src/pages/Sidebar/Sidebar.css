@@ -1,0 +1,122 @@
+.sidebar {
+  width: 150px;
+  height: 100vh;
+  background: #fff;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 20px;
+  transition: left 0.3s ease-in-out, transform 0.3s ease-in-out;
+  flex-shrink: 0;
+  z-index: 10002;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -200px;
+    width: 200px;
+    /* Slightly wider on mobile for better touch targets */
+    height: 100vh;
+    z-index: 10002;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .sidebar-overlay.open {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10001;
+  }
+}
+
+.logo {
+  padding: 30px 0 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.logo img {
+  width: 100px;
+}
+
+.sidebar-profile {
+  width: 100%;
+  padding: 0 10px 12px;
+  text-align: center;
+}
+
+.sidebar-profile-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-profile-phone {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8c8c8c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.menu-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.menu-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.menu-label {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+hr {
+  width: 80%;
+  border: none;
+  border-top: 2px solid #e0e0e0;
+  margin: 6px 0;
+}

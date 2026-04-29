@@ -1,0 +1,270 @@
+.shipment-details-page {
+  min-height: 100vh;
+  background: #f6f7f9;
+  display: flex;
+  flex-direction: column;
+}
+
+.shipment-details-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 30px 10px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.back-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.back-button img {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.header-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.shipment-details-body {
+  padding: 20px 30px 40px;
+}
+
+.courier-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.courier-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: rgba(223, 36, 41, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.media-wrapper {
+  margin-top: 18px;
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.shipment-image {
+  width: 100%;
+  height: 360px;
+  object-fit: cover;
+  display: block;
+}
+
+.shipment-map-placeholder {
+  height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #fefefe, #f0f0f0);
+}
+
+.action-buttons {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.outline-button {
+  height: 56px;
+  border-radius: 16px;
+  border: 2px solid #df2429;
+  background: #fff;
+  color: #df2429;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.outline-button.dark {
+  border-color: #111;
+  color: #111;
+}
+
+.section-title {
+  margin-top: 26px;
+  margin-bottom: 12px;
+}
+
+.expansion-panels {
+  background: #fff;
+  border-radius: 16px;
+  padding: 8px 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.panel {
+  border-bottom: 1px solid #eee;
+}
+
+.panel:last-child {
+  border-bottom: none;
+}
+
+.panel-header {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  cursor: pointer;
+}
+
+.panel-arrow {
+  font-size: 20px;
+  color: #df2429;
+}
+
+.panel-body {
+  padding: 0 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.map-link-row {
+  margin-top: 6px;
+}
+
+.map-link {
+  color: #111;
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+.timeline-title {
+  margin-top: 28px;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: #fff;
+  padding: 16px 18px 22px;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.timeline-icon {
+  width: 30px;
+  height: 30px;
+  margin-top: 2px;
+  flex: 0 0 30px;
+  display: block;
+}
+
+.timeline-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timeline-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-action {
+  width: 100%;
+  border: none;
+  border-bottom: 2px solid #e0e0e0;
+  border-radius: 0;
+  padding: 10px 0 14px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  color: #111;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.timeline-actions .timeline-action:last-child {
+  border-bottom: none;
+  padding-bottom: 6px;
+}
+
+.timeline-action-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+}
+
+.timeline-action-icon img {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.timeline-action-arrow {
+  color: #df2429;
+  font-size: 22px;
+  margin-left: auto;
+}
+
+@media (max-width: 900px) {
+  .shipment-details-body {
+    padding: 20px;
+  }
+
+  .shipment-image,
+  .shipment-map-placeholder {
+    height: 280px;
+  }
+}
