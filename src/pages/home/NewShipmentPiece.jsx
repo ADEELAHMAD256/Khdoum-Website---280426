@@ -10,6 +10,10 @@ export default function NewShipmentPiece({
   fragile,
   onFragileChange,
 }) {
+  const isInvalid =
+    shipmentValue !== "" &&
+    (Number(shipmentValue) <= 0 || isNaN(Number(shipmentValue)));
+
   return (
     <>
       <div className="new-shipment-field">
@@ -19,6 +23,7 @@ export default function NewShipmentPiece({
         <div className="new-shipment-input-wrap">
           <input
             type="text"
+            className={isInvalid ? "error" : ""}
             placeholder="Enter amount (JD)"
             value={shipmentValue}
             onChange={onShipmentValueChange}
@@ -27,6 +32,11 @@ export default function NewShipmentPiece({
           />
           <span className="new-shipment-input-icon">!</span>
         </div>
+        {isInvalid && (
+          <span className="new-shipment-error-text">
+            Value must be greater than zero
+          </span>
+        )}
       </div>
 
       <div className="new-shipment-field">

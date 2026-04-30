@@ -2,9 +2,9 @@ import React, { useState } from "react";
 
 // Country data (minimal)
 const COUNTRIES = [
-  { name: "Jordan", dialCode: "+962", flag: "🇯🇴", hint: "79*******" },
-  { name: "Pakistan", dialCode: "+92", flag: "🇵🇰", hint: "3*********" },
-  { name: "UAE", dialCode: "+971", flag: "🇦🇪", hint: "50*******" },
+  { name: "Jordan", dialCode: "+962", flag: "🇯🇴", code: "jo", hint: "79*******" },
+  { name: "Pakistan", dialCode: "+92", flag: "🇵🇰", code: "pk", hint: "3*********" },
+  { name: "UAE", dialCode: "+971", flag: "🇦🇪", code: "ae", hint: "50*******" },
 ];
 
 export default function PhoneNumberInputWithCountry({
@@ -64,21 +64,26 @@ export default function PhoneNumberInputWithCountry({
           cursor: "pointer",
           marginRight: isCompact ? 8 : 10,
           borderRadius: 10,
+          flexShrink: 0,
         }}
         onClick={() => setDropdownOpen(!dropdownOpen)}
       >
-        <span
+        <img
+          src={`https://flagcdn.com/w40/${selectedCountry.code}.png`}
+          alt={selectedCountry.name}
           style={{
-            fontSize: isCompact ? 20 : 24,
-            lineHeight: isCompact ? 1 : undefined,
+            width: isCompact ? 22 : 26,
+            height: "auto",
+            display: "block",
+            borderRadius: 2,
           }}
-        >
-          {selectedCountry.flag}
-        </span>
+        />
         <span
           style={{
             marginLeft: 8,
             color: "#555",
+            fontWeight: "600",
+            whiteSpace: "nowrap",
             ...(isCompact ? { fontSize: 13, lineHeight: 1 } : {}),
           }}
         >
@@ -127,6 +132,7 @@ export default function PhoneNumberInputWithCountry({
             marginTop: 5,
             zIndex: 2000,
             overflow: "hidden",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
           }}
         >
           {COUNTRIES.map((country) => (
@@ -134,23 +140,31 @@ export default function PhoneNumberInputWithCountry({
               key={country.dialCode}
               onClick={() => handleCountryChange(country)}
               style={{
-                padding: "10px 12px",
+                padding: "12px 14px",
                 display: "flex",
                 alignItems: "center",
                 cursor: "pointer",
                 backgroundColor:
                   selectedCountry.dialCode === country.dialCode
-                    ? "#f0f0f0"
+                    ? "#f8f8f8"
                     : "white",
+                borderBottom: "1px solid #f0f0f0",
               }}
             >
-              <span style={{ fontSize: 29, marginRight: 10 }}>
-                {country.flag}
-              </span>
-              <span style={{ marginLeft: 10, color: "#777" }}>
+              <img
+                src={`https://flagcdn.com/w40/${country.code}.png`}
+                alt={country.name}
+                style={{
+                  width: 24,
+                  height: "auto",
+                  marginRight: 12,
+                  borderRadius: 2,
+                }}
+              />
+              <span style={{ fontSize: 14, color: "#333", fontWeight: "600" }}>
                 {country.name}
               </span>
-              <span style={{ marginLeft: "auto", color: "#777" }}>
+              <span style={{ marginLeft: "auto", color: "#777", fontSize: 13 }}>
                 {country.dialCode}
               </span>
             </div>
@@ -160,3 +174,4 @@ export default function PhoneNumberInputWithCountry({
     </div>
   );
 }
+

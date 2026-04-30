@@ -17,6 +17,7 @@ import NewShipmentCheckout from "./NewShipmentCheckout";
 import NewShipmentPayment from "./NewShipmentPayment";
 import AddCardOverlay from "./AddCardOverlay";
 import NewShipmentBulkSummary from "./NewShipmentBulkSummary";
+import currentLocationIcon from "../../assets/icons/current_location.svg";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import * as xlsx from "xlsx";
@@ -542,6 +543,10 @@ function normalizeShipment(raw) {
       closestLandmark: pickupLoc.closestLandmark,
       latitude: pickupLoc.latitude,
       longitude: pickupLoc.longitude,
+      locationLink:
+        pickupLoc.latitude && pickupLoc.longitude
+          ? `https://www.google.com/maps?q=${pickupLoc.latitude},${pickupLoc.longitude}`
+          : "",
     },
 
     dropoff: {
@@ -556,6 +561,10 @@ function normalizeShipment(raw) {
       closestLandmark: dropoffLoc.closestLandmark,
       latitude: dropoffLoc.latitude,
       longitude: dropoffLoc.longitude,
+      locationLink:
+        dropoffLoc.latitude && dropoffLoc.longitude
+          ? `https://www.google.com/maps?q=${dropoffLoc.latitude},${dropoffLoc.longitude}`
+          : "",
     },
 
     payment: {
@@ -611,6 +620,22 @@ function getShipmentTimeline(shipment) {
     };
   });
 }
+
+const extractLatLngFromUrl = (url) => {
+  if (!url) return null;
+  // Matches ?q=lat,lng or @lat,lng
+  const regex =
+    /q=([-+]?\d*\.?\d+),([-+]?\d*\.?\d+)|@([-+]?\d*\.?\d+),([-+]?\d*\.?\d+)/;
+  const match = url.match(regex);
+  if (match) {
+    const lat = parseFloat(match[1] || match[3]);
+    const lng = parseFloat(match[2] || match[4]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+  }
+  return null;
+};
 
 export default function HomeScreen() {
   const mapRef = useRef(null);
@@ -706,6 +731,7 @@ export default function HomeScreen() {
     setMode,
     mode,
     animateMapTo,
+    currentLocation,
     draftPickupLocation,
     setDraftPickupLocation,
     draftDropoffLocation,
@@ -765,6 +791,14 @@ export default function HomeScreen() {
     setBulkFile(null);
     setParsedBulkShipments([]);
   }, [authPhoneNumber, clearDraftLocations, setPendingMapPan]);
+
+  const handleCurrentLocationClick = useCallback(() => {
+    if (currentLocation) {
+      animateMapTo(currentLocation, { minZoom: 15 });
+    } else {
+      toast.info("Still determining your location...");
+    }
+  }, [currentLocation, animateMapTo, toast]);
 
   const buildVerificationLink = useCallback(() => {
     const sellerFirstName = profile?.firstName || "";
@@ -1081,6 +1115,42 @@ export default function HomeScreen() {
     ],
   );
 
+  const normalizePhoneNumber = useCallback((number) => {
+    if (!number) return "";
+    let clean = String(number)
+      .trim()
+      .replace(/[^\d+]/g, ""); // Keep only digits and plus
+    if (!clean) return "";
+
+    const sellerPhone = getAuthPhoneNumber() || "";
+    // Dial codes from governorates.js
+    const dialCodes = ["+962", "+92", "+971", "+966", "+970", "+972"];
+    dialCodes.sort((a, b) => b.length - a.length);
+
+    let sellerDialCode = "+962"; // Default fallback
+    const foundSellerCode = dialCodes.find((c) => sellerPhone.startsWith(c));
+    if (foundSellerCode) sellerDialCode = foundSellerCode;
+
+    // 1. Check if number already has a country code
+    if (clean.startsWith("+")) {
+      return clean;
+    }
+    if (clean.startsWith("00")) {
+      return "+" + clean.substring(2);
+    }
+
+    // 2. Remove leading zeros and attach seller's dial code
+    if (clean.startsWith("0")) {
+      while (clean.startsWith("0")) {
+        clean = clean.substring(1);
+      }
+      return sellerDialCode + clean;
+    }
+
+    // 3. No prefix, attach seller's dial code
+    return sellerDialCode + clean;
+  }, []);
+
   const handleNewShipmentNext = useCallback(async () => {
     if (newShipmentTab === "piece") {
       const value = Number(shipmentValue);
@@ -1105,42 +1175,153 @@ export default function HomeScreen() {
         const workbook = xlsx.read(data, { type: "array" });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        
-        const json = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-        
-        // json[0] is header, rows start at 1
+
+        const json = xlsx.utils.sheet_to_json(worksheet, {
+          header: 1,
+          defval: "",
+        });
+
+        const headers = json[0] || [];
+        // Find the actual header row (scanning first 10 rows for "Shipment Value")
+        let headerRowIdx = 0;
+        for (let r = 0; r < Math.min(json.length, 10); r++) {
+          if (
+            json[r] &&
+            json[r].some((cell) =>
+              String(cell || "")
+                .toLowerCase()
+                .includes("shipment value"),
+            )
+          ) {
+            headerRowIdx = r;
+            break;
+          }
+        }
+        const activeHeaders = json[headerRowIdx] || [];
+
+        const findCol = (keywords, startAt = 0) => {
+          for (let i = startAt; i < activeHeaders.length; i++) {
+            const h = String(activeHeaders[i] || "").toLowerCase();
+            if (
+              keywords.some(
+                (k) => h === k.toLowerCase() || h.includes(k.toLowerCase()),
+              )
+            ) {
+              return i;
+            }
+          }
+          return -1;
+        };
+
+        // Map column indices by titles (Robust against added/moved columns)
+        const m = {
+          value: findCol(["shipment value"]),
+          length: findCol(["length"]),
+          fragile: findCol(["fragile"]),
+          pDate: findCol(["pick up date"]),
+          pTime: findCol(["pick up time"]),
+          pGov: findCol(["pick up governorate"]),
+          pStreet: findCol(["street name"]),
+          pBuilding: findCol(["building number"]),
+          pFloor: findCol(["floor number"]),
+          pApt: findCol(["apartment number"]),
+          pLandmark: findCol(["closest landmark"]),
+          pInstruction: findCol(["further instructions"]),
+          pLink: findCol(["pickup location link"]),
+          yesRemaining: findCol(["recipient to pay any amount"]),
+          remaining: findCol(["amount upon delivery"]),
+          feePaidBy: findCol(["who pay shipment fee"]),
+          dDate: findCol(["drop off date"]),
+          dTime: findCol(["drop off time"]),
+          fName: findCol(["recipient first name"]),
+          lName: findCol(["recipient last name"]),
+          phone: findCol(["recipient phone number"]),
+          fillAddr: findCol(["recipient enter his address"]),
+          dGov: findCol(["drop off governorate"]),
+        };
+
+        // For repeated fields like street, building, etc.
+        m.dStreet = findCol(["street name"], m.dGov !== -1 ? m.dGov : 21);
+        m.dBuilding = findCol(["building number"], m.dGov !== -1 ? m.dGov : 21);
+        m.dFloor = findCol(["floor number"], m.dGov !== -1 ? m.dGov : 21);
+        m.dApt = findCol(["apartment number"], m.dGov !== -1 ? m.dGov : 21);
+        m.dLandmark = findCol(
+          ["closest landmark"],
+          m.dGov !== -1 ? m.dGov : 21,
+        );
+        m.dInstruction = findCol(
+          ["further instructions"],
+          m.dGov !== -1 ? m.dGov : 21,
+        );
+        m.dLink = findCol(
+          ["drop off location link"],
+          m.dGov !== -1 ? m.dGov : 21,
+        );
+        m.promocode = findCol(["promocode"]);
+
         const parsed = [];
-        for (let i = 1; i < json.length; i++) {
+        for (let i = headerRowIdx + 1; i < json.length; i++) {
           const row = json[i];
-          // Skip completely empty rows
-          if (!row || row.every(cell => String(cell).trim() === "")) continue;
+          if (!row || row.every((cell) => String(cell || "").trim() === ""))
+            continue;
 
-          // Column 18: First Name, Column 19: Last Name
-          const firstName = String(row[18] || "").trim();
-          const lastName = String(row[19] || "").trim();
-          const name = `${firstName} ${lastName}`.trim() || "Unknown Recipient";
+          const val = (idx, fallback = "") => {
+            if (idx === -1 || idx === undefined) return fallback;
+            return String(row[idx] || fallback).trim();
+          };
 
-          // Column 20: Phone/Whatsapp (Guessing index 20 based on proximity to name)
-          const phone = String(row[20] || "").trim();
+          const shipmentValueRaw = val(m.value, "0");
+          const shipmentValueNum = Number(shipmentValueRaw);
 
-          // Column 22: Drop-off Governorate
-          const city = String(row[22] || "").trim();
+          if (!Number.isFinite(shipmentValueNum) || shipmentValueNum <= 0) {
+            toast.error(
+              `Row ${i + 1}: Shipment Value must be a positive number. Found: "${shipmentValueRaw}"`,
+            );
+            return;
+          }
 
-          // Column 0: Valid Value
-          const value = String(row[0] || "0").trim();
+          const firstName = val(m.fName);
+          const lastName = val(m.lName);
+          const rawPhone = val(m.phone);
+          const phone = normalizePhoneNumber(rawPhone);
 
-          // Column 16: Drop-off Date
-          let dateStr = String(row[16] || "").trim();
-          
-          parsed.push({ 
-            firstName, 
-            lastName, 
-            name, 
-            phone, 
-            city, 
-            value, 
-            date: dateStr, 
-            originalRowIndex: i 
+          parsed.push({
+            originalRowIndex: i,
+            value: val(m.value, "0"),
+            length: val(m.length),
+            isFragile: val(m.fragile).toLowerCase() === "yes",
+            pickupDate: val(m.pDate),
+            pickupTime: val(m.pTime),
+            pickupGov: val(m.pGov),
+            pickupStreet: val(m.pStreet),
+            pickupBuilding: val(m.pBuilding),
+            pickupFloor: val(m.pFloor),
+            pickupApartment: val(m.pApt),
+            pickupLandmark: val(m.pLandmark),
+            pickupInstruction: val(m.pInstruction),
+            pickupLink: val(m.pLink),
+            yesRemainingAmount: val(m.yesRemaining).toLowerCase() === "yes",
+            remainingAmount: val(m.remaining),
+            feePaidBy:
+              val(m.feePaidBy).toLowerCase() === "recipient"
+                ? "recipient"
+                : "sender",
+            dropoffDate: val(m.dDate),
+            dropoffTime: val(m.dTime),
+            firstName,
+            lastName,
+            name: `${firstName} ${lastName}`.trim() || "Unknown Recipient",
+            phone,
+            recipientFillAddress: val(m.fillAddr).toLowerCase() === "yes",
+            dropoffGov: val(m.dGov),
+            dropoffStreet: val(m.dStreet),
+            dropoffBuilding: val(m.dBuilding),
+            dropoffFloor: val(m.dFloor),
+            dropoffApartment: val(m.dApt),
+            dropoffLandmark: val(m.dLandmark),
+            dropoffInstruction: val(m.dInstruction),
+            dropoffLink: val(m.dLink),
+            promocode: val(m.promocode),
           });
         }
 
@@ -1163,32 +1344,55 @@ export default function HomeScreen() {
     }
 
     setCreatingShipment(true);
+    const ensureValidDate = (val) => {
+      if (!val) return null;
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split("T")[0];
+      }
+      // Handle common Excel string formats or numeric serials if possible
+      return null;
+    };
+
+    const getBestDate = (preferred, fallback) => {
+      return (
+        ensureValidDate(preferred) ||
+        ensureValidDate(fallback) ||
+        new Date().toISOString().split("T")[0]
+      );
+    };
+
+    const getBestTime = (preferred, fallback) => {
+      if (preferred && String(preferred).includes(":")) return preferred;
+      if (fallback && String(fallback).includes("T"))
+        return fallback.split("T")[1];
+      return "12:00";
+    };
+
     try {
       const shipmentBody = [];
 
       for (const item of parsedBulkShipments) {
-        // 1. Create Recipient
-        // Note: For production, we might want a bulk recipient API or handle this more efficiently.
-        // For now, we follow the single-recipient-per-shipment pattern.
-        const whatsapp = item.phone || "000000000"; // Fallback if missing
+        const whatsapp = item.phone || "000000000";
         const recipientResponse = await createRecipient(
           sellerId,
           item.firstName || item.name,
           item.lastName || "",
-          whatsapp
+          whatsapp,
         );
         const recipientId = extractRecipientId(recipientResponse);
-        
+
         if (!recipientId) continue;
 
-        // 2. Build Verification Link (Simple version for bulk)
         const params = new URLSearchParams();
         params.set("name", item.name);
-        params.set("seller_name", `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim());
+        params.set(
+          "seller_name",
+          `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim(),
+        );
         params.set("fill_address", "false");
         const verificationLink = `https://khdoum-recipient-1.firebaseapp.com/welcome?${params.toString()}`;
 
-        // 3. Add to body
         shipmentBody.push({
           senderId: sellerId,
           recipientId,
@@ -1197,26 +1401,40 @@ export default function HomeScreen() {
           shipmentFeePaidBy: "recipient",
           type: "Bulk",
           value: Number(item.value) || 0,
-          isFragile: false,
+          isFragile: item.isFragile || false,
           pickUpDetails: {
-            date: splitDateTime(pickupDateTime).date,
-            time: splitDateTime(pickupDateTime).time,
+            date: getBestDate(item.pickupDate, pickupDateTime),
+            time: getBestTime(item.pickupTime, pickupDateTime),
             location: {
               ...buildLocationPayload({
-                governorate: pickupGovernorate,
+                governorate: item.pickupGov || pickupGovernorate,
                 latitude: String(draftPickupLocation?.lat || 0),
                 longitude: String(draftPickupLocation?.lng || 0),
+                streetName: item.pickupStreet,
+                buildingNumber: item.pickupBuilding,
+                floorNumber: item.pickupFloor,
+                apartmentNumber: item.pickupApartment,
+                closestLandmark: item.pickupLandmark,
+                furtherInstruction: item.pickupInstruction,
+                locationLink: item.pickupLink,
               }),
             },
           },
           dropOffDetails: {
-            date: item.date || splitDateTime(dropoffDateTime).date,
-            time: splitDateTime(dropoffDateTime).time,
+            date: getBestDate(item.dropoffDate, dropoffDateTime),
+            time: getBestTime(item.dropoffTime, dropoffDateTime),
             location: {
               ...buildLocationPayload({
-                governorate: item.city || dropoffGovernorate,
+                governorate: item.dropoffGov || item.city || dropoffGovernorate,
                 latitude: "0",
                 longitude: "0",
+                streetName: item.dropoffStreet,
+                buildingNumber: item.dropoffBuilding,
+                floorNumber: item.dropoffFloor,
+                apartmentNumber: item.dropoffApartment,
+                closestLandmark: item.dropoffLandmark,
+                furtherInstruction: item.dropoffInstruction,
+                locationLink: item.dropoffLink,
               }),
             },
           },
@@ -1263,9 +1481,105 @@ export default function HomeScreen() {
     setPendingMapPan(null);
   }, [animateMapTo, isMapReady, pendingMapPan]);
 
-  const selectedShipmentDetails = selectedShipment || null;
+  const selectedShipmentDetails = useMemo(() => {
+    if (selectedShipment) return selectedShipment;
+    if (typeof selectedId === "string" && selectedId.startsWith("bulk-")) {
+      const idx = parseInt(selectedId.replace("bulk-", ""), 10);
+      const bulk = parsedBulkShipments.find((s) => s.originalRowIndex === idx);
+      if (bulk) {
+        return {
+          id: selectedId,
+          trackingId: "Draft",
+          status: "Draft",
+          recipient: {
+            firstName: bulk.firstName,
+            lastName: bulk.lastName,
+            name: bulk.name,
+            phone: bulk.phone,
+            whatsapp: bulk.phone,
+          },
+          pickup: {
+            governorate: bulk.pickupGov,
+            date: bulk.pickupDate,
+            time: bulk.pickupTime,
+            streetName: bulk.pickupStreet,
+            buildingNumber: bulk.pickupBuilding,
+            floorNumber: bulk.pickupFloor,
+            apartmentNumber: bulk.pickupApartment,
+            closestLandmark: bulk.pickupLandmark,
+            furtherInstruction: bulk.pickupInstruction,
+            locationLink: bulk.pickupLink,
+          },
+          dropoff: {
+            governorate: bulk.dropoffGov,
+            date: bulk.dropoffDate,
+            time: bulk.dropoffTime,
+            streetName: bulk.dropoffStreet,
+            buildingNumber: bulk.dropoffBuilding,
+            floorNumber: bulk.dropoffFloor,
+            apartmentNumber: bulk.dropoffApartment,
+            closestLandmark: bulk.dropoffLandmark,
+            furtherInstruction: bulk.dropoffInstruction,
+            locationLink: bulk.dropoffLink,
+          },
+          payment: {
+            amount: bulk.value,
+            currency: "JOD",
+            remainingAmount: bulk.yesRemainingAmount
+              ? bulk.remainingAmount
+              : null,
+            feePaidBy: bulk.feePaidBy,
+          },
+          type: "Bulk",
+          value: bulk.value,
+          length: bulk.length,
+          isFragile: bulk.isFragile,
+          createdAt: bulk.dropoffDate,
+          trackingStatus: [],
+          _isBulkDraft: true,
+        };
+      }
+    }
+    return null;
+  }, [selectedShipment, selectedId, parsedBulkShipments]);
+
+  const handleLocationFocus = useCallback(
+    (type) => {
+      const loc =
+        type === "pickup"
+          ? selectedShipmentDetails?.pickup
+          : selectedShipmentDetails?.dropoff;
+
+      const lat = loc?.latitude || loc?.lat;
+      const lng = loc?.longitude || loc?.lng;
+
+      if (lat && lng) {
+        animateMapTo({ lat, lng }, { minZoom: 16 });
+        return;
+      }
+
+      // If no raw coordinates, try to extract from the link
+      const extracted = extractLatLngFromUrl(loc?.locationLink);
+      if (extracted) {
+        animateMapTo(extracted, { minZoom: 16 });
+        return;
+      }
+
+      // Final fallback: open the link externally if it exists
+      if (loc?.locationLink) {
+        window.open(loc.locationLink, "_blank", "noopener,noreferrer");
+      } else {
+        toast.warning("No location link or coordinates available.");
+      }
+    },
+    [selectedShipmentDetails, animateMapTo, toast],
+  );
+
   const shipmentTimeline = useMemo(
-    () => getShipmentTimeline(selectedShipmentDetails),
+    () =>
+      selectedShipmentDetails?._isBulkDraft
+        ? []
+        : getShipmentTimeline(selectedShipmentDetails),
     [selectedShipmentDetails],
   );
 
@@ -1552,7 +1866,9 @@ export default function HomeScreen() {
   useEffect(() => {
     if (window.innerWidth > 767) return;
 
-    const mapEl = document.querySelector(".map-container");
+    const mapEl =
+      document.querySelector(".map-wrapper") ||
+      document.querySelector(".map-container");
     const fullscreenEl = document.querySelector(".map-fullscreen");
     if (!mapEl || !fullscreenEl) return;
 
@@ -1637,66 +1953,131 @@ export default function HomeScreen() {
       notes = "",
     } = selectedShipmentDetails;
 
+    const isBulk = selectedShipmentDetails._isBulkDraft;
+
+    const recipientRows = [
+      [
+        "First Name",
+        recipient.firstName || splitFullName(recipient.name).firstName,
+      ],
+      [
+        "Last Name",
+        recipient.lastName || splitFullName(recipient.name).lastName,
+      ],
+      ["Phone", recipient.phone],
+      ["Whatsapp", recipient.whatsapp],
+    ];
+
+    const paymentRows = [
+      [
+        "Amount",
+        payment.amount != null || payment.currency
+          ? `${payment.amount ?? ""} ${payment.currency ?? ""}`.trim()
+          : "",
+      ],
+      [
+        "Remaining Amount",
+        payment.remainingAmount ? `${payment.remainingAmount} JOD` : "None",
+      ],
+      ["Payment Status", payment.status],
+      ["Fee Paid By", payment.feePaidBy],
+      ["Settlement Status", payment.settlementStatus],
+    ];
+
+    const dropoffRows = [
+      ["Drop-Off Governorate", dropoff.governorate],
+      ["Drop-Off Date", formatDateOnly(dropoff.date)],
+      ["Drop-Off Time", dropoff.time],
+      ["Street Name", dropoff.streetName],
+      ["Building Number", dropoff.buildingNumber],
+      ["Floor Number", dropoff.floorNumber],
+      ["Apartment Number", dropoff.apartmentNumber],
+      ["Closest Landmark", dropoff.closestLandmark],
+      ["Further Instructions", dropoff.furtherInstruction],
+      ["Location Link", dropoff.locationLink],
+    ];
+
+    const filterEmptyRows = (rows) =>
+      rows.filter(([_, val]) => {
+        if (val === null || val === undefined) return false;
+        const s = String(val).trim();
+        return s !== "" && s !== "--" && s.toLowerCase() !== "none";
+      });
+
     const panels = [
       {
         key: "pickup",
         title: "Pick-Up Details",
-        rows: [
+        rows: filterEmptyRows([
           ["Pick-Up Governorate", pickup.governorate],
           ["Pick-Up Date", formatDateOnly(pickup.date)],
           ["Pick-Up Time", pickup.time],
-        ],
+          ["Street Name", pickup.streetName],
+          ["Building Number", pickup.buildingNumber],
+          ["Floor Number", pickup.floorNumber],
+          ["Apartment Number", pickup.apartmentNumber],
+          ["Closest Landmark", pickup.closestLandmark],
+          ["Further Instructions", pickup.furtherInstruction],
+          ["Location Link", pickup.locationLink],
+        ]),
         showMapLink: true,
       },
       {
         key: "shipment",
         title: "Shipment Details",
-        rows: [
-          ["Tracking ID", trackingId],
-          ["Type", type],
-          ["Value", value != null ? String(value) : ""],
-          ["Status", status],
-          ["Updated At", formatDateTime(updatedAt)],
-          ["Notes", notes],
-        ],
-      },
-      {
-        key: "recipient",
-        title: "Recipient Details",
-        rows: [
-          ["Name", recipient.name],
-          ["Phone", recipient.phone],
-          ["Whatsapp", recipient.whatsapp],
-        ],
-      },
-      {
-        key: "payment",
-        title: "Payment Details",
-        rows: [
-          [
-            "Amount",
-            payment.amount != null || payment.currency
-              ? `${payment.amount ?? ""} ${payment.currency ?? ""}`.trim()
-              : "",
-          ],
-          ["Payment Status", payment.status],
-          ["Fee Paid By", payment.feePaidBy],
-          ["Settlement Status", payment.settlementStatus],
-        ],
-      },
-      {
-        key: "dropoff",
-        title: "Drop-Off Details",
-        rows: [
-          ["Recipient First Name", splitFullName(recipient.name).firstName],
-          ["Recipient Last Name", splitFullName(recipient.name).lastName],
-          ["Recipient Whatsapp", recipient.whatsapp],
-          ["Drop-Off Governorate", dropoff.governorate],
-          ["Drop-Off Date", formatDateOnly(dropoff.date)],
-          ["Drop-Off Time", dropoff.time],
-        ],
+        rows: filterEmptyRows(
+          isBulk
+            ? [
+                ["Type", type],
+                ["Value", value != null ? `${value} JOD` : ""],
+                ["Fragile", selectedShipmentDetails.isFragile ? "Yes" : "No"],
+              ]
+            : [
+                ["Tracking ID", trackingId],
+                ["Type", type],
+                ["Value", value != null ? `${value} JOD` : ""],
+                [
+                  "Length",
+                  selectedShipmentDetails.length
+                    ? `${selectedShipmentDetails.length} cm`
+                    : "",
+                ],
+                ["Fragile", selectedShipmentDetails.isFragile ? "Yes" : "No"],
+                ["Status", status],
+                ["Updated At", formatDateTime(updatedAt)],
+                ["Notes", notes],
+              ],
+        ),
       },
     ];
+
+    if (!isBulk) {
+      panels.push({
+        key: "recipient",
+        title: "Recipient Details",
+        rows: filterEmptyRows(recipientRows),
+      });
+    }
+
+    panels.push({
+      key: "payment",
+      title: "Payment Details",
+      rows: isBulk
+        ? filterEmptyRows([
+            ["Fragile", selectedShipmentDetails.isFragile ? "Yes" : "No"],
+          ])
+        : filterEmptyRows(paymentRows),
+    });
+
+    const finalDropoffRows = isBulk
+      ? [...recipientRows, ...dropoffRows]
+      : dropoffRows;
+
+    panels.push({
+      key: "dropoff",
+      title: "Drop-Off Details",
+      rows: filterEmptyRows(finalDropoffRows),
+    });
 
     if (courier) {
       panels.splice(2, 0, {
@@ -1719,6 +2100,7 @@ export default function HomeScreen() {
     "dropoffDetails",
     "checkout",
     "addCard",
+    "bulkSummary",
   ].includes(mode);
 
   // Modes that render a full-screen panel — the map must not capture any clicks.
@@ -1729,6 +2111,7 @@ export default function HomeScreen() {
     "paymentDetails",
     "checkout",
     "addCard",
+    "bulkSummary",
   ].includes(mode);
 
   // Initialise the Stripe instance once — keep it outside render to avoid
@@ -1759,11 +2142,31 @@ export default function HomeScreen() {
 
       <main className="map-fullscreen">
         <div
-          className="map-container"
-          ref={mapRef}
-          style={isOverlayMode ? { pointerEvents: "none" } : undefined}
+          className="map-wrapper"
+          style={{ pointerEvents: isOverlayMode ? "none" : "auto" }}
         >
-          {!isMapReady && <p>Loading Map...</p>}
+          <div className="map-container" ref={mapRef}>
+            {!isMapReady && <p>Loading Map...</p>}
+          </div>
+          {(mode === "pickupDetails" || mode === "dropoffDetails") && (
+            <>
+              <div className="fixed-center-marker">
+                <img
+                  src={mode === "pickupDetails" ? pickupIcon : dropoffIcon}
+                  alt=""
+                />
+              </div>
+              <button
+                type="button"
+                className="current-location-button"
+                onClick={handleCurrentLocationClick}
+                aria-label="Go to Current Location"
+                title="Go to Current Location"
+              >
+                <img src={currentLocationIcon} alt="" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Search Bar — hidden on mobile as it is integrated into observers */}
@@ -1873,6 +2276,7 @@ export default function HomeScreen() {
             onAcceptedTermsChange={setPaymentAcceptedTerms}
             shippingPayer={paymentShippingPayer}
             onShippingPayerChange={setPaymentShippingPayer}
+            shipmentValue={shipmentValue}
           />
         ) : mode === "dropoffDetails" ? (
           <NewShipmentDropoff
@@ -1975,6 +2379,7 @@ export default function HomeScreen() {
             onBack={() => setMode("newShipment")}
             onSubmit={handleBulkSubmit}
             submitting={creatingShipment}
+            onSelect={handleShipmentSelect}
           />
         ) : mode === "checkout" ? (
           <NewShipmentCheckout
@@ -2029,7 +2434,17 @@ export default function HomeScreen() {
             timeline={shipmentTimeline}
             recipientPhone={selectedShipmentDetails?.recipient?.phone}
             courierPhone={selectedShipmentDetails?.courier?.phone}
-            onBack={() => setMode("shipment")}
+            onLocationClick={handleLocationFocus}
+            onBack={() => {
+              if (
+                typeof selectedId === "string" &&
+                selectedId.startsWith("bulk-")
+              ) {
+                setMode("bulkSummary");
+              } else {
+                setMode("shipment");
+              }
+            }}
           />
         ) : (
           <HomeShipments

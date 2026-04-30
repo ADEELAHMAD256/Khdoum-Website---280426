@@ -129,20 +129,24 @@ export default function NewShipmentPickup({
           <button
             type="button"
             className="pickup-pill"
-            onClick={() =>
-              onPickupDateTimeChange?.(new Date().toISOString().slice(0, 16))
-            }
+            onClick={() => {
+              const now = new Date();
+              const offset = now.getTimezoneOffset() * 60000;
+              const localISOTime = new Date(now - offset).toISOString().slice(0, 16);
+              onPickupDateTimeChange?.(localISOTime);
+            }}
           >
             Today
           </button>
           <button
             type="button"
             className="pickup-pill"
-            onClick={() =>
-              onPickupDateTimeChange?.(
-                new Date(Date.now() + 86400000).toISOString().slice(0, 16),
-              )
-            }
+            onClick={() => {
+              const tomorrow = new Date(Date.now() + 86400000);
+              const offset = tomorrow.getTimezoneOffset() * 60000;
+              const localISOTime = new Date(tomorrow - offset).toISOString().slice(0, 16);
+              onPickupDateTimeChange?.(localISOTime);
+            }}
           >
             Tomorrow
           </button>

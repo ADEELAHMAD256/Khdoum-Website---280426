@@ -14,8 +14,15 @@ export default function NewShipmentPayment({
   onAcceptedTermsChange,
   shippingPayer = "",
   onShippingPayerChange,
+  shipmentValue = 0,
 }) {
   const toast = useToast();
+
+  const numAmount = Number(amount);
+  const isInvalidAmount =
+    otherAmount && amount !== "" && (numAmount <= 0 || isNaN(numAmount));
+  const isAmountTooHigh =
+    otherAmount && amount !== "" && numAmount > shipmentValue;
 
   const handleNext = () => {
     if (!acceptedTerms) {
@@ -29,9 +36,14 @@ export default function NewShipmentPayment({
     }
 
     if (otherAmount) {
-      const value = Number(amount);
-      if (!Number.isFinite(value) || value <= 0) {
+      if (!amount || isInvalidAmount) {
         toast.warning("Please enter a valid remaining amount.");
+        return;
+      }
+      if (isAmountTooHigh) {
+        toast.warning(
+          `The amount cannot exceed the shipment value (JD ${shipmentValue}).`,
+        );
         return;
       }
     }
@@ -85,13 +97,29 @@ export default function NewShipmentPayment({
           <CustomText size="13px" weight="600">
             How much is the amount? (In JOD)
           </CustomText>
-          <input
-            className="payment-amount-input"
-            type="number"
-            placeholder="0.0 JOD"
-            value={amount}
-            onChange={(event) => onAmountChange?.(event.target.value)}
-          />
+          <div className="new-shipment-input-wrap">
+            <input
+              className={`payment-amount-input ${isInvalidAmount || isAmountTooHigh ? "error" : ""
+                }`}
+              type="number"
+              placeholder="0.0 JOD"
+              value={amount}
+              onChange={(event) => onAmountChange?.(event.target.value)}
+            />
+            {(isInvalidAmount || isAmountTooHigh) && (
+              <span className="new-shipment-input-icon">!</span>
+            )}
+          </div>
+          {isInvalidAmount && (
+            <span className="new-shipment-error-text">
+              Value must be greater than zero
+            </span>
+          )}
+          {isAmountTooHigh && !isInvalidAmount && (
+            <span className="new-shipment-error-text">
+              Amount cannot exceed shipment value (JD {shipmentValue})
+            </span>
+          )}
           <div className="payment-helper">
             1. Payments that your recipient pays by card are subjected to the
             service provider fees JD 0.20 + 2.9%

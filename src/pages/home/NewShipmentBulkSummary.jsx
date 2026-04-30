@@ -1,7 +1,13 @@
 import CustomText from "../../components/CustomText";
 import "./NewShipmentBulkSummary.css";
 
-export default function NewShipmentBulkSummary({ shipments, onBack, onSubmit, submitting }) {
+export default function NewShipmentBulkSummary({ 
+  shipments, 
+  onBack, 
+  onSubmit, 
+  submitting, 
+  onSelect 
+}) {
   return (
     <div className="bulk-summary-overlay">
       <div className="bulk-summary-header">
@@ -13,33 +19,36 @@ export default function NewShipmentBulkSummary({ shipments, onBack, onSubmit, su
         </CustomText>
       </div>
 
-      <div className="bulk-summary-body">
-        <p className="bulk-summary-desc">
-          We found <strong>{shipments.length}</strong> shipments in your file. 
-          Please review them before submitting.
-        </p>
+      <p className="bulk-summary-desc">
+        We found <strong>{shipments.length}</strong> shipments in your file. 
+        Please review them before submitting.
+      </p>
 
+      <div className="bulk-summary-body">
         <div className="bulk-summary-list">
-          {shipments.map((item, index) => (
-            <div key={index} className="bulk-summary-item">
-              <div className="bulk-item-info">
-                <CustomText size="15px" weight="600">
+          {shipments.map((item, index) => {
+            const key = `bulk-${item.originalRowIndex || index}`;
+            return (
+              <div 
+                key={key} 
+                className="shipment-item"
+                onClick={() => onSelect?.(key)}
+              >
+                <CustomText className="shipment-name" size="15px" weight="600">
                   {item.name}
                 </CustomText>
-                <CustomText size="13px" color="#666">
-                  {item.city} | {item.value} JD
+                <CustomText className="shipment-details" size="13px">
+                  {item.phone || "—"}
+                  {item.pickupGov || item.dropoffGov ? ` | ${item.pickupGov || "—"} → ${item.dropoffGov || "—"}` : ""}
+                  {item.pickupDate ? ` | ${item.pickupDate}` : ""}
                 </CustomText>
+                <CustomText className="shipment-status" size="13px" weight="600" color="#df2429">
+                  {item.value} JD
+                </CustomText>
+                <div className="arrow">›</div>
               </div>
-              <div className="bulk-item-date">
-                <CustomText size="12px" color="#888">
-                  Scheduled on:
-                </CustomText>
-                <CustomText size="13px" weight="500">
-                  {item.date || "Not set"}
-                </CustomText>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -55,3 +64,4 @@ export default function NewShipmentBulkSummary({ shipments, onBack, onSubmit, su
     </div>
   );
 }
+

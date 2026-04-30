@@ -128,6 +128,9 @@ export function useHomeScreenLogic({
 
   const selectedId = useMemo(() => {
     if (explicitSelectedId) {
+      if (typeof explicitSelectedId === "string" && explicitSelectedId.startsWith("bulk-")) {
+        return explicitSelectedId;
+      }
       const exists = items.some((shipment) => getShipmentKey(shipment) === explicitSelectedId);
       if (exists) return explicitSelectedId;
     }
@@ -249,9 +252,8 @@ export function useHomeScreenLogic({
     const viewKey = JSON.stringify({
       mode,
       selectedId: getShipmentKey(selectedShipment),
-      // Only trigger camera reset if the EXISTENCE of a point changes, not its COORDS
-      hasPickup: !!draftPickupLocation,
-      hasDropoff: !!draftDropoffLocation,
+      // Remove hasPickup/hasDropoff from viewKey to prevent camera resets
+      // when coordinates are updated during panning.
       currentLoc: (!selectedShipment && !draftPickupLocation && !draftDropoffLocation) ? currentLocation : null
     });
 
@@ -263,73 +265,32 @@ export function useHomeScreenLogic({
       const lastCenterValue = lastCenter
         ? { lat: lastCenter.lat(), lng: lastCenter.lng() }
         : null;
+
+      const modeSpecificCenter =
+        mode === "pickupDetails"
+          ? normalizeLatLng(draftPickupLocation)
+          : mode === "dropoffDetails"
+            ? normalizeLatLng(draftDropoffLocation)
+            : null;
+
       const preferCurrent = Boolean(followUserLocation && currentLocation);
-      const fallbackCenter = preferCurrent
-        ? currentLocation
-        : lastCenterValue ||
-        getAnyShipmentPos(selectedShipment) ||
-        currentLocation ||
-        { lat: 0, lng: 0 };
-      const zoom = preferCurrent ? 15 : mapInstanceRef.current?.getZoom?.() || 13;
+      const fallbackCenter =
+        modeSpecificCenter ||
+        (preferCurrent
+          ? currentLocation
+          : lastCenterValue ||
+            getAnyShipmentPos(selectedShipment) ||
+            currentLocation || { lat: 0, lng: 0 });
+      const zoom = preferCurrent
+        ? 15
+        : mapInstanceRef.current?.getZoom?.() || 13;
 
       // SKIP MOVE if it's not a fresh view (e.g., just updating a marker coordinate)
       const map = createOrUpdateMap(fallbackCenter, zoom, !isFirstView);
       if (!map) return;
       clearMarkers();
 
-      const nextMarkers = [];
-      const pickupPos = normalizeLatLng(draftPickupLocation);
-      const dropoffPos = normalizeLatLng(draftDropoffLocation);
-
-      if (pickupPos) {
-        nextMarkers.push(
-          new window.google.maps.Marker({
-            position: pickupPos,
-            map,
-            icon: pickupIcon
-              ? {
-                url: pickupIcon,
-                scaledSize: new window.google.maps.Size(30, 40),
-                anchor: new window.google.maps.Point(15, 40),
-              }
-              : undefined,
-            title: "Pick-up location",
-          }),
-        );
-      }
-
-      if (dropoffPos) {
-        nextMarkers.push(
-          new window.google.maps.Marker({
-            position: dropoffPos,
-            map,
-            icon: dropoffIcon
-              ? {
-                url: dropoffIcon,
-                scaledSize: new window.google.maps.Size(30, 40),
-                anchor: new window.google.maps.Point(15, 40),
-              }
-              : undefined,
-            title: "Drop-off location",
-          }),
-        );
-      }
-
-      markersRef.current = nextMarkers;
-
-      // Only perform bounds fitting on a fresh view transition
-      if (isFirstView && (pickupPos || dropoffPos)) {
-        const bounds = new window.google.maps.LatLngBounds();
-        if (pickupPos) bounds.extend(pickupPos);
-        if (dropoffPos) bounds.extend(dropoffPos);
-
-        if (pickupPos && dropoffPos) {
-          map.fitBounds(bounds, { top: 100, right: 50, bottom: 50, left: 50 });
-        } else {
-          map.setCenter(pickupPos || dropoffPos);
-          map.setZoom(15);
-        }
-      }
+      markersRef.current = [];
       return;
     }
 
@@ -523,10 +484,25 @@ export function useHomeScreenLogic({
   }, [isMapReady, mapRef, onUserMapInteraction]);
 
   useEffect(() => {
-    if (mode !== "pickupDetails" && mode !== "dropoffDetails") return;
     if (!isMapReady || !mapRef.current) return;
     const map = mapInstanceRef.current;
     if (!map?.addListener) return;
+
+    if (mode === "pickupDetails" || mode === "dropoffDetails") {
+      const listener = map.addListener("idle", () => {
+        const center = map.getCenter().toJSON();
+        if (mode === "pickupDetails") {
+          setDraftPickupLocation(center);
+        } else {
+          setDraftDropoffLocation(center);
+        }
+        lastInteractionTimeRef.current = Date.now();
+        onUserMapInteraction?.();
+      });
+      return () => {
+        if (listener?.remove) listener.remove();
+      };
+    }
 
     const listener = map.addListener("click", (event) => {
       const lat = event?.latLng?.lat?.();
@@ -536,7 +512,7 @@ export function useHomeScreenLogic({
 
       if (mode === "pickupDetails") {
         setDraftPickupLocation(coords);
-      } else {
+      } else if (mode === "dropoffDetails") {
         setDraftDropoffLocation(coords);
       }
 
@@ -677,6 +653,7 @@ export function useHomeScreenLogic({
     setMode,
     isMapReady,
     animateMapTo,
+    currentLocation,
     draftPickupLocation,
     setDraftPickupLocation,
     draftDropoffLocation,

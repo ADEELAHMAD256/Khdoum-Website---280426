@@ -14,6 +14,7 @@ export default function HomeShipmentDetails({
   onBack,
   recipientPhone,
   courierPhone,
+  onLocationClick,
 }) {
   const toast = useToast();
 
@@ -85,7 +86,27 @@ export default function HomeShipmentDetails({
                       {label}
                     </CustomText>
                     <CustomText size="13px" color="#555">
-                      {value || "--"}
+                      {label === "Location Link" && value ? (
+                        <button
+                          type="button"
+                          onClick={() => onLocationClick?.(panel.key)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            color: "#df2429",
+                            textDecoration: "underline",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            fontSize: "inherit",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          📍 View on Map
+                        </button>
+                      ) : (
+                        value || "--"
+                      )}
                     </CustomText>
                   </div>
                 ))}

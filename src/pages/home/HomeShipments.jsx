@@ -133,36 +133,40 @@ export default function HomeShipments({
 
         <div className="filter-group">
           <CustomText weight="600">From:</CustomText>
-          {pickupGovernorates.map((gov) => (
-            <button
-              key={gov}
-              type="button"
-              className={activeFromGov === gov ? "is-selected" : ""}
-              aria-pressed={activeFromGov === gov}
-              onClick={() =>
-                setActiveFromGov((current) => (current === gov ? "" : gov))
-              }
-            >
-              {gov}
-            </button>
-          ))}
+          <div className="filter-scroll">
+            {pickupGovernorates.map((gov) => (
+              <button
+                key={gov}
+                type="button"
+                className={activeFromGov === gov ? "is-selected" : ""}
+                aria-pressed={activeFromGov === gov}
+                onClick={() =>
+                  setActiveFromGov((current) => (current === gov ? "" : gov))
+                }
+              >
+                {gov}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="filter-group">
           <CustomText weight="600">To:</CustomText>
-          {dropoffGovernorates.map((gov) => (
-            <button
-              key={gov}
-              type="button"
-              className={activeToGov === gov ? "is-selected" : ""}
-              aria-pressed={activeToGov === gov}
-              onClick={() =>
-                setActiveToGov((current) => (current === gov ? "" : gov))
-              }
-            >
-              {gov}
-            </button>
-          ))}
+          <div className="filter-scroll">
+            {dropoffGovernorates.map((gov) => (
+              <button
+                key={gov}
+                type="button"
+                className={activeToGov === gov ? "is-selected" : ""}
+                aria-pressed={activeToGov === gov}
+                onClick={() =>
+                  setActiveToGov((current) => (current === gov ? "" : gov))
+                }
+              >
+                {gov}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
